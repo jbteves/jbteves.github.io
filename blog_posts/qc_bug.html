@@ -1,0 +1,84 @@
+<h1>QC Bug: Octals and Bash</h1>
+<h2>2023-03-19</h2>
+
+<p>
+    I have a habit of biting off more than I really should be chewing.
+    The particularly large and dry pretzel of a problem that I was solving was that I was asked to lead a project on QCing fMRI data, as part of a special issue by a few members of the neuroimaging community.
+    For the unitiated, fMRI is a method of Magnetic Resonance Imaging (i.e., making images with really big magnets, often of living or formerly livingt hings) designed to examine blood flow to the brain.
+    If you've seen headlines about how parts of the brain "light up" in response to certain tasks, those headlines are probably talking about fMRI.
+    I have little to no formal fMRI, or even MRI training, but was in the field for several years enough to grasp some of the basics as I did some programming for MRI-related projects.
+    Nonetheless, I took up this task despite having another big, dry pretzel to chew on, the minor detail that my wife was preparing to defend her PhD and we were getting ready to move from South Carolina, where I lived almost my entire life, to Ohio, where she spent half of her childhood.
+    Also we recently had covid.
+</p>
+
+<p>
+    This recipe for success started with my trying some basic shell scripting automation of common AFNI (a neuroimaging software package) pipelines on my own, mostly using my work Mac.
+    My first mistake was not concerning myself about the fact that my Mac was running zshell, not bash, which is the scripting language we'd be using on the cluster when we started running pipelines in earnest.
+    The team mistake that we made (and I can say this publicly because my collaborators agreed) was that nobody really took a close look at what I was doing.
+    In their view, I was the programming person, and I could be trusted to implement everything myself.
+    Dear reader, do not repeat such a grievous error on your own technical teams.
+</p>
+
+<p>
+    The key error I made as I programmed in zshell was that the subject IDs were integers ranging either from 0 to 30 or from 100 to 120.
+    However, in the data set, the IDs were 0-padded, such that "1" becomes the string "001", "2" becomes "002", and so on.
+    Because I did the prototyping in zshell, and ran my tests with that, I did not think that would be an issue.
+    Dear reader, it was an issue.
+</p>
+
+<p>
+    Another error I made was making repeated code, with slight variations, instead of making one function or script to do the 0-padding correctly.
+    I have no notes indicating why I did not make a better choice, so unfortunately this lapse in judgement is not lessened by some sort of justifiable reason.
+    As I began testing the bash code on the cluster, in bash, I realized that there was a weird issue: I was getting mismatches between what I expected given some subject ID and what I was getting.
+    I eventually narrowed this down to an unxepected problem: in bash, numbers which begin with 0 are presumed to be octal (that is, a digit may be a value between 0 and 7 rather than 0 and 9).
+    I remembered to correct this in one part of the script, but not the other.
+    I was very proud of the pipeline, though, because all you had to do was punch in a subject ID to launch an entire analysis pipeline.
+</p>
+
+<p>
+    Upon running the scripts, it was quickly discovered that in one data set, we had a pretty substantial issue
+    In this project, we had anatomical images (proxies for the brain's structure) and functional images (proxies for the brain's function).
+    In a number of subjects, these appeared to be totally misaligned, resulting in us rejecting a number of subjects as unusable.
+    Here was a repeat of a prior error: this would have been a good point to stop and ask if I'd made a serious error somewhere in the pipeline.
+    We drafted the paper, submitting it shortly after I moved a good chunk of the way across the country.
+    It's worth noting that at this point I managed to swap one pretzel for another: a colleague at Sandia was now trying to recruit me, and so I was also preparing a job application for Sandia.
+</p>
+
+<p>
+    Some months later, we got the reviews back and Paul Taylor on the AFNI team decided that something wasn't right.
+    His team had used a very similar pipeline and gotten nowhere <i>near</i> the same results that we did.
+    Because I was chewing too many pretzels at once in my life, I probably de-weighted that input more than I should have.
+    As I turned in my notice for my NIH job, having secured a job at Sandia, Paul investigated our pipeline carefully, concerned that AFNI was doing something teribly wrong.
+    A few weeks later, I drove to DC to drop off some equipment and say my goodbytes, figuring that my last day at NIH would be spent reminiscing about the strange journey I'd had to get there to begin with and chatting with my colleagues.
+</p>
+
+<p>
+    At about noon on this last day, as I sat chilling in the conference room, Paul insisted that we should talk about this issue.
+    I figure that's fine, because I wanted his excellent coffee and I had a surprise for him where I'd written a small AFNI program to draw a dog wagging its tail as ASCII art (for long days of looking at MRI data).
+    After showing him the dog and indulging in coffee, we got to talking, and Paul figured it out: the anatomical images were not correct for some subjects.
+    This begins the great panic of my final afternoon at NIH.
+</p>
+
+<p>
+    With this horrid realization, I went back to my colleagues in the lab and we started ripping apart logs, looking at code, desperately trying to figure out what could cause it.
+    After a while, we finally found the log pointing at the offending problem: in one program, we were passing in a subject ID that didn't match the one in the the supplied input file, so the output was mislabeled.
+    Here's what had happened: in one part of the code, I had guarded against octal input to produce the correct input <i>file</i>, but had neglected to fix the part of the code that merely generated the subject ID (again, for reasons or lack of reason that I can't remember).
+    So a script that accepted 008 as input was producing 010 in one case, and 008 in another, resulting in subject 8 mistakenly being labeled subject 10.
+    We quickly found a fix, but it was one of the first steps of the pipeline, so it meant everything had to be re-run, and more embarassingly, we would have to email the editor that in our manuscript <i>about quality control</i>, we had made a serious error in processing.
+    And so we did at almost 5:00 on my last day at NIH.
+</p>
+
+<p>
+    Fortunately the editor and reviewers were understanding, and as of this week our manuscript is accepted, including its wart indicating that this error occurred in the first submission.
+    But what do I take away from this?
+    The big one is not to skip in-depth code review.
+    I think it's good to have a second, more adversarial, pair of eyes examine the code that you're brining into a project, no matter how trivial the operation may seem.
+    Another is that when things are acting strange, it's probably a good idea to stop and isolate every potential source of strangeness, including the pipeline you're so sure you tested well.
+    In this sense Paul was the real hero, for asking such absurd questions as, "Do the subjects have the right images?"
+    It seems self-evident that it should be so, but in this case it was not.
+    It is also incredibly difficult to automate things completely.
+    A human might have mis-typed a number, but a human would also notice that the numbers don't match in a way that might be hard to remember to account for in software.    
+    Another lesson, perhaps more unpopular, is that I'm not so sure about writing complex pipelines in bash.
+    It's very difficult to build a test suite for your bash code in a way that isn't for many other languages, such as python (which I admit I have my own quibbles with).
+    The last lesson is just for me, and it's one of humility: sometimes you can think you've built something grand, without realizing that something as simple as naming files is horribly awry.
+</p>
