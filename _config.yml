@@ -1,1 +1,13 @@
-theme: jekyll-theme-minimal
+title: Joshua Teves
+theme: minima
+github_username: jbteves
+
+header_pages:
+  - books/books_read.html
+  - blog_posts/toc.html
+  - quotes.html
+  - active_projects.html
+  - fun.html
+
+exclude:
+  - CLAUDE.md
